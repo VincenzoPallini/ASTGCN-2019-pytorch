@@ -63,9 +63,12 @@ loss_function = training_config['loss_function']
 metric_method = training_config['metric_method']
 missing_value = float(training_config['missing_value'])
 
-# Initialize wandb
+# Set up wandb with the API key
+os.environ['WANDB_API_KEY'] = '1a020476226c8b2a0f57dd39277650363d35253b'  
 wandb.login()
-wandb.init(project="ASTGCN", entity="your-entity-name")
+
+# Wandb
+wandb.init(project="new_project_name", entity="epdragon-universit-degli-studi-di-milano-bicocca")  
 wandb.config.update(args)
 
 folder_dir = '%s_h%dd%dw%d_channel%d_%e' % (model_name, num_of_hours, num_of_days, num_of_weeks, in_channels, learning_rate)
