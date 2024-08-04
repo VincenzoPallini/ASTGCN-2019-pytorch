@@ -243,7 +243,7 @@ def predict_main(global_step, data_loader, data_target_tensor, metric_method, _m
     :param type: str
     :return:
     '''
-    params_filename = os.path.join(params_path, 'epoch_%s.params' % global_step)
+    params_filename = os.path.join(params_path, f'epoch_{global_step}.params')
     print('load weight from:', params_filename)
 
     net.load_state_dict(torch.load(params_filename))
@@ -257,11 +257,11 @@ def predict_main(global_step, data_loader, data_target_tensor, metric_method, _m
             prediction.append(outputs.detach().cpu().numpy())
         
         prediction = np.concatenate(prediction, 0)
-        prediction = prediction * _std + _mean
-        target = data_target_tensor * _std + _mean
+        prediction = prediction * _std.cpu().numpy() + _mean.cpu().numpy()
+        target = data_target_tensor.cpu().numpy() * _std.cpu().numpy() + _mean.cpu().numpy()
         
-        mae = masked_mae(prediction, target, 0.0).item()
-        rmse = masked_rmse(prediction, target, 0.0).item()
+        mae = masked_mae(torch.from_numpy(prediction), torch.from_numpy(target), 0.0).item()
+        rmse = masked_rmse(torch.from_numpy(prediction), torch.from_numpy(target), 0.0).item()
         mape = masked_mape_np(prediction, target, 0)
 
         print(f'{type} mae: {mae}, mape: {mape}, rmse: {rmse}')
@@ -271,6 +271,7 @@ def predict_main(global_step, data_loader, data_target_tensor, metric_method, _m
             f"{type}_mape": mape,
             f"{type}_rmse": rmse
         })
+
 
         # You might want to add some visualizations here and log them to wandb
 
