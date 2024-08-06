@@ -67,9 +67,26 @@ missing_value = float(training_config['missing_value'])
 os.environ['WANDB_API_KEY'] = '1a020476226c8b2a0f57dd39277650363d35253b'  
 wandb.login()
 
-# Wandb
-wandb.init(project="new_project_name", entity="epdragon-universit-degli-studi-di-milano-bicocca")  
-wandb.config.update(args)
+# Wandb initialization
+wandb.init(
+    project="ASTGCN",
+    entity="epdragon-universit-degli-studi-di-milano-bicocca",
+    config={
+        "learning_rate": learning_rate,
+        "epochs": epochs,
+        "batch_size": batch_size,
+        "model": model_name,
+        "num_of_vertices": num_of_vertices,
+        "num_for_predict": num_for_predict,
+        "len_input": len_input,
+        "nb_chev_filter": nb_chev_filter,
+        "nb_time_filter": nb_time_filter,
+        "nb_block": nb_block,
+        "K": K,
+        "loss_function": loss_function
+    }
+)
+
 
 folder_dir = '%s_h%dd%dw%d_channel%d_%e' % (model_name, num_of_hours, num_of_days, num_of_weeks, in_channels, learning_rate)
 print('folder_dir:', folder_dir)
@@ -84,6 +101,8 @@ adj_mx, distance_mx = get_adjacency_matrix(adj_filename, num_of_vertices, id_fil
 
 net = make_model(DEVICE, nb_block, in_channels, K, nb_chev_filter, nb_time_filter, time_strides, adj_mx,
                  num_for_predict, len_input, num_of_vertices)
+
+wandb.watch(net)
 
 def train_main():
     if (start_epoch == 0) and (not os.path.exists(params_path)):
@@ -128,8 +147,6 @@ def train_main():
 
     optimizer = optim.Adam(net.parameters(), lr=learning_rate)
     sw = SummaryWriter(logdir=params_path, flush_secs=5)
-    
-    wandb.watch(net)
 
     print(net)
 
@@ -198,6 +215,9 @@ def train_main():
         epoch_loss /= num_batches
         epoch_metrics = {k: v / num_batches for k, v in epoch_metrics.items()}
 
+        # Validation
+        val_loss, val_metrics = compute_val_loss_mstgcn(net, val_loader, criterion_masked if masked_flag else criterion, masked_flag, missing_value, sw, epoch)
+
         # Log metrics to wandb
         wandb.log({
             "epoch": epoch,
@@ -205,18 +225,14 @@ def train_main():
             "train_mae": epoch_metrics['mae'],
             "train_mape": epoch_metrics['mape'],
             "train_rmse": epoch_metrics['rmse'],
+            "val_loss": val_loss,
+            "val_mae": val_metrics['mae'],
+            "val_mape": val_metrics['mape'],
+            "val_rmse": val_metrics['rmse'],
             "learning_rate": optimizer.param_groups[0]['lr']
         })
 
         params_filename = os.path.join(params_path, 'epoch_%s.params' % epoch)
-
-        # Validation
-        if masked_flag:
-            val_loss = compute_val_loss_mstgcn(net, val_loader, criterion_masked, masked_flag, missing_value, sw, epoch)
-        else:
-            val_loss = compute_val_loss_mstgcn(net, val_loader, criterion, masked_flag, missing_value, sw, epoch)
-
-        wandb.log({"val_loss": val_loss})
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
@@ -274,8 +290,7 @@ def predict_main(global_step, data_loader, data_target_tensor, metric_method, _m
             f"{type}_rmse": rmse
         })
 
-
-        # You might want to add some visualizations here and log them to wandb
+        return {'mae': mae, 'mape': mape, 'rmse': rmse}
 
 if __name__ == "__main__":
     train_main()
