@@ -233,16 +233,6 @@ def train_main():
     predict_main(best_epoch, test_loader, test_target_tensor, metric_method, _mean, _std, 'test')
 
 def predict_main(global_step, data_loader, data_target_tensor, metric_method, _mean, _std, type):
-    '''
-    :param global_step: int
-    :param data_loader: torch.utils.data.utils.DataLoader
-    :param data_target_tensor: tensor
-    :param metric_method: str
-    :param _mean: (1, 1, 3, 1)
-    :param _std: (1, 1, 3, 1)
-    :param type: str
-    :return:
-    '''
     params_filename = os.path.join(params_path, f'epoch_{global_step}.params')
     print('load weight from:', params_filename)
 
@@ -257,8 +247,20 @@ def predict_main(global_step, data_loader, data_target_tensor, metric_method, _m
             prediction.append(outputs.detach().cpu().numpy())
         
         prediction = np.concatenate(prediction, 0)
-        prediction = prediction * _std.cpu().numpy() + _mean.cpu().numpy()
-        target = data_target_tensor.cpu().numpy() * _std.cpu().numpy() + _mean.cpu().numpy()
+        
+        # Handle both tensor and numpy array cases for _std and _mean
+        if isinstance(_std, torch.Tensor):
+            _std_np = _std.cpu().numpy()
+        else:
+            _std_np = _std
+        
+        if isinstance(_mean, torch.Tensor):
+            _mean_np = _mean.cpu().numpy()
+        else:
+            _mean_np = _mean
+        
+        prediction = prediction * _std_np + _mean_np
+        target = data_target_tensor.cpu().numpy() * _std_np + _mean_np
         
         mae = masked_mae(torch.from_numpy(prediction), torch.from_numpy(target), 0.0).item()
         rmse = masked_rmse(torch.from_numpy(prediction), torch.from_numpy(target), 0.0).item()
