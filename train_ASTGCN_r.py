@@ -12,8 +12,7 @@ import configparser
 from model.ASTGCN_r import make_model
 from lib.utils import load_graphdata_channel1, get_adjacency_matrix, compute_val_loss_mstgcn, predict_and_save_results_mstgcn
 from tensorboardX import SummaryWriter
-from lib.metrics import masked_mape_np,  masked_mae,masked_mse,masked_rmse
-
+from lib.metrics import masked_mape_np, masked_mae, masked_mse, masked_rmse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--config", default='configurations/METR_LA_astgcn.conf', type=str,
@@ -68,7 +67,6 @@ print('folder_dir:', folder_dir)
 params_path = os.path.join('experiments', dataset_name, folder_dir)
 print('params_path:', params_path)
 
-
 train_loader, train_target_tensor, val_loader, val_target_tensor, test_loader, test_target_tensor, _mean, _std = load_graphdata_channel1(
     graph_signal_matrix_filename, num_of_hours,
     num_of_days, num_of_weeks, DEVICE, batch_size)
@@ -77,7 +75,6 @@ adj_mx, distance_mx = get_adjacency_matrix(adj_filename, num_of_vertices, id_fil
 
 net = make_model(DEVICE, nb_block, in_channels, K, nb_chev_filter, nb_time_filter, time_strides, adj_mx,
                  num_for_predict, len_input, num_of_vertices)
-
 
 def train_main():
     if (start_epoch == 0) and (not os.path.exists(params_path)):
@@ -103,13 +100,14 @@ def train_main():
     print('graph_signal_matrix_filename\t', graph_signal_matrix_filename)
     print('start_epoch\t', start_epoch)
     print('epochs\t', epochs)
-    masked_flag=0
+
+    masked_flag = 0
     criterion = nn.L1Loss().to(DEVICE)
     criterion_masked = masked_mae
-    if loss_function=='masked_mse':
-        criterion_masked = masked_mse         #nn.MSELoss().to(DEVICE)
-        masked_flag=1
-    elif loss_function=='masked_mae':
+    if loss_function == 'masked_mse':
+        criterion_masked = masked_mse
+        masked_flag = 1
+    elif loss_function == 'masked_mae':
         criterion_masked = masked_mae
         masked_flag = 1
     elif loss_function == 'mae':
@@ -117,9 +115,11 @@ def train_main():
         masked_flag = 0
     elif loss_function == 'rmse':
         criterion = nn.MSELoss().to(DEVICE)
-        masked_flag= 0
+        masked_flag = 0
+
     optimizer = optim.Adam(net.parameters(), lr=learning_rate)
     sw = SummaryWriter(logdir=params_path, flush_secs=5)
+
     print(net)
 
     print('Net\'s state_dict:')
@@ -140,25 +140,57 @@ def train_main():
     start_time = time()
 
     if start_epoch > 0:
-
         params_filename = os.path.join(params_path, 'epoch_%s.params' % start_epoch)
-
         net.load_state_dict(torch.load(params_filename))
-
         print('start epoch:', start_epoch)
-
         print('load weight from: ', params_filename)
 
     # train model
     for epoch in range(start_epoch, epochs):
+        net.train()  # ensure dropout layers are in train mode
+
+        epoch_loss = 0.0
+        epoch_metrics = {'mae': 0.0, 'mape': 0.0, 'rmse': 0.0}
+
+        for batch_index, batch_data in enumerate(train_loader):
+            encoder_inputs, labels = batch_data
+            optimizer.zero_grad()
+            outputs = net(encoder_inputs)
+
+            if masked_flag:
+                loss = criterion_masked(outputs, labels, missing_value)
+            else:
+                loss = criterion(outputs, labels)
+
+            loss.backward()
+            optimizer.step()
+
+            training_loss = loss.item()
+            epoch_loss += training_loss
+
+            # Calculate metrics
+            mae = masked_mae(outputs, labels, missing_value).item()
+            mape = masked_mape_np(outputs.cpu().detach().numpy(), labels.cpu().detach().numpy(), missing_value)
+            rmse = masked_rmse(outputs, labels, missing_value).item()
+
+            epoch_metrics['mae'] += mae
+            epoch_metrics['mape'] += mape
+            epoch_metrics['rmse'] += rmse
+
+            global_step += 1
+
+            if global_step % 1000 == 0:
+                print('global step: %s, training loss: %.2f, time: %.2fs' % (global_step, training_loss, time() - start_time))
+
+        # Compute average metrics for the epoch
+        num_batches = len(train_loader)
+        epoch_loss /= num_batches
+        epoch_metrics = {k: v / num_batches for k, v in epoch_metrics.items()}
+
+        # Validation
+        val_loss, val_metrics = compute_val_loss_mstgcn(net, val_loader, criterion_masked if masked_flag else criterion, masked_flag, missing_value, sw, epoch)
 
         params_filename = os.path.join(params_path, 'epoch_%s.params' % epoch)
-
-        if masked_flag:
-            val_loss = compute_val_loss_mstgcn(net, val_loader, criterion_masked, masked_flag,missing_value,sw, epoch)
-        else:
-            val_loss = compute_val_loss_mstgcn(net, val_loader, criterion, masked_flag, missing_value, sw, epoch)
-
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
@@ -166,78 +198,50 @@ def train_main():
             torch.save(net.state_dict(), params_filename)
             print('save parameters to file: %s' % params_filename)
 
-        net.train()  # ensure dropout layers are in train mode
-
-        for batch_index, batch_data in enumerate(train_loader):
-
-            encoder_inputs, labels = batch_data
-
-            optimizer.zero_grad()
-
-            outputs = net(encoder_inputs)
-
-            if masked_flag:
-                loss = criterion_masked(outputs, labels,missing_value)
-            else :
-                loss = criterion(outputs, labels)
-
-
-            loss.backward()
-
-            optimizer.step()
-
-            training_loss = loss.item()
-
-            global_step += 1
-
-            sw.add_scalar('training_loss', training_loss, global_step)
-
-            if global_step % 1000 == 0:
-
-                print('global step: %s, training loss: %.2f, time: %.2fs' % (global_step, training_loss, time() - start_time))
+        print('Epoch [{}/{}], Train Loss: {:.4f}, Val Loss: {:.4f}'.format(epoch + 1, epochs, epoch_loss, val_loss))
 
     print('best epoch:', best_epoch)
 
     # apply the best model on the test set
-    predict_main(best_epoch, test_loader, test_target_tensor,metric_method ,_mean, _std, 'test')
+    predict_main(best_epoch, test_loader, test_target_tensor, metric_method, _mean, _std, 'test')
 
-
-def predict_main(global_step, data_loader, data_target_tensor,metric_method, _mean, _std, type):
-    '''
-
-    :param global_step: int
-    :param data_loader: torch.utils.data.utils.DataLoader
-    :param data_target_tensor: tensor
-    :param mean: (1, 1, 3, 1)
-    :param std: (1, 1, 3, 1)
-    :param type: string
-    :return:
-    '''
-
-    params_filename = os.path.join(params_path, 'epoch_%s.params' % global_step)
+def predict_main(global_step, data_loader, data_target_tensor, metric_method, _mean, _std, type):
+    params_filename = os.path.join(params_path, f'epoch_{global_step}.params')
     print('load weight from:', params_filename)
 
     net.load_state_dict(torch.load(params_filename))
+    net.eval()
 
-    predict_and_save_results_mstgcn(net, data_loader, data_target_tensor, global_step, metric_method,_mean, _std, params_path, type)
+    with torch.no_grad():
+        prediction = []
+        for batch_index, batch_data in enumerate(data_loader):
+            encoder_inputs, labels = batch_data
+            outputs = net(encoder_inputs)
+            prediction.append(outputs.detach().cpu().numpy())
+        
+        prediction = np.concatenate(prediction, 0)
+        
+        # Handle both tensor and numpy array cases for _std and _mean
+        if isinstance(_std, torch.Tensor):
+            _std_np = _std.cpu().numpy()
+        else:
+            _std_np = _std
+        
+        if isinstance(_mean, torch.Tensor):
+            _mean_np = _mean.cpu().numpy()
+        else:
+            _mean_np = _mean
+        
+        prediction = prediction * _std_np + _mean_np
+        target = data_target_tensor.cpu().numpy() * _std_np + _mean_np
+        
+        mae = masked_mae(torch.from_numpy(prediction), torch.from_numpy(target), 0.0).item()
+        rmse = masked_rmse(torch.from_numpy(prediction), torch.from_numpy(target), 0.0).item()
+        mape = masked_mape_np(prediction, target, 0)
 
+        print(f'{type} mae: {mae}, mape: {mape}, rmse: {rmse}')
+
+        return {'mae': mae, 'mape': mape, 'rmse': rmse}
 
 if __name__ == "__main__":
-
     train_main()
-
-    # predict_main(13, test_loader, test_target_tensor,metric_method, _mean, _std, 'test')
-
-
-
-
-
-
-
-
-
-
-
-
-
-
