@@ -192,6 +192,9 @@ def train_main():
 
         params_filename = os.path.join(params_path, 'epoch_%s.params' % epoch)
 
+        if isinstance(val_loss, tuple):
+            val_loss = val_loss[0]
+            
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             best_epoch = epoch
