@@ -233,6 +233,15 @@ import numpy as np
 from matplotlib.pyplot import figure
 import torch
 
+# Funzione per salvare e visualizzare i grafici
+def save_and_show_plot(fig, filename):
+    output_dir = 'output'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    filepath = os.path.join(output_dir, filename)
+    fig.savefig(filepath)
+    plt.show()
+  
 def plot_errors(predictions, true_values):
     """
     Plotta i risultati delle previsioni rispetto ai valori reali, evidenziando i casi con errori massimi e minimi.
@@ -279,27 +288,55 @@ def plot_errors(predictions, true_values):
 
 
 
+
+# Funzione migliorata per plottare con zoom sugli errori significativi
 def plot_sample_output(outputs, labels):
-    """
-    Plotta le previsioni e i valori reali per un campione di dati con 50 finestre temporali.
+    sample_output = outputs[0]  # Prendiamo il primo campione per semplicità
+    sample_label = labels[0]
     
-    :param outputs: previsioni del modello (numpy.ndarray)
-    :param labels: valori reali (numpy.ndarray)
-    """
-    sample_output = outputs[0]  # previsione del primo batch
-    sample_labels = labels[0]   # valori reali del primo batch
+    # Creare un array di errori assoluti per ogni punto
+    errors = np.abs(sample_output - sample_label)
+    
+    # Trova il punto con errore massimo e minimo
+    max_error_idx = np.argmax(errors)
+    min_error_idx = np.argmin(errors)
+    
+    # Crea una figura per l'intero dataset
+    fig1, ax1 = plt.subplots()
+    ax1.plot(sample_label, color='blue', label='Valori Reali')
+    ax1.plot(sample_output, color='orange', label='Previsioni')
+    ax1.scatter(max_error_idx, sample_output[max_error_idx], color='red', label='Errore massimo')
+    ax1.scatter(min_error_idx, sample_output[min_error_idx], color='green', label='Errore minimo')
+    ax1.set_title('Confronto Previsioni vs Valori Reali')
+    ax1.set_xlabel('Punto di osservazione')
+    ax1.set_ylabel('Valore')
+    ax1.legend()
+    
+    # Salva e visualizza il grafico dell'intero dataset
+    save_and_show_plot(fig1, 'confronto_completo.png')
 
-    print(f"Forma delle previsioni: {sample_output.shape}, Forma dei valori reali: {sample_labels.shape}")
+    # Zoom su una porzione del dataset per una visualizzazione più chiara
+    zoom_range = 500  # Definiamo il numero di punti da visualizzare in dettaglio
+    fig2, ax2 = plt.subplots()
+    ax2.plot(range(zoom_range), sample_label[:zoom_range], color='blue', label='Valori Reali')
+    ax2.plot(range(zoom_range), sample_output[:zoom_range], color='orange', label='Previsioni')
+    
+    # Troviamo gli errori massimi e minimi nella porzione selezionata
+    max_error_idx_zoom = np.argmax(errors[:zoom_range])
+    min_error_idx_zoom = np.argmin(errors[:zoom_range])
+    
+    ax2.scatter(max_error_idx_zoom, sample_output[max_error_idx_zoom], color='red', label='Errore massimo')
+    ax2.scatter(min_error_idx_zoom, sample_output[min_error_idx_zoom], color='green', label='Errore minimo')
+    ax2.set_title(f'Zoom sui primi {zoom_range} punti')
+    ax2.set_xlabel('Punto di osservazione')
+    ax2.set_ylabel('Valore')
+    ax2.legend()
+    
+    # Salva e visualizza il grafico con zoom
+    save_and_show_plot(fig2, f'confronto_zoom_{zoom_range}.png')
 
-    figure(figsize=(30, 4), dpi=80)
-    for i in range(50):  # Plot per 50 finestre temporali
-        new_i = i * 12
-        # Plotta la previsione (in rosso) e il valore reale (in blu) per ogni finestra
-        plt.plot(range(0 + new_i, 12 + new_i), sample_output[i], color='red')
-        plt.plot(range(0 + new_i, 12 + new_i), sample_labels[i], color='blue')
-
-    plt.title("Confronto tra previsioni e valori reali per 50 finestre temporali")
-    plt.show()
+# Esempio di chiamata a questa funzione dopo aver ottenuto previsioni e valori reali
+plot_sample_output(predictions, true_values)
 
 
 def predict_and_evaluate(net, data_loader, data_target_tensor, metric_method, _mean, _std, params_path=None, global_step=0):
