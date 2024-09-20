@@ -215,7 +215,7 @@ def load_graphdata_channel1(graph_signal_matrix_filename, num_of_hours, num_of_d
     return train_loader, train_target_tensor, val_loader, val_target_tensor, test_loader, test_target_tensor, mean, std
 
 
-def compute_val_loss_mstgcn(net, val_loader, criterion, masked_flag, missing_value, sw, epoch, limit=None):
+def compute_val_loss_mstgcn(net, val_loader, criterion,  masked_flag,missing_value,sw, epoch, limit=None):
     '''
     for rnn, compute mean loss on validation set
     :param net: model
@@ -224,7 +224,7 @@ def compute_val_loss_mstgcn(net, val_loader, criterion, masked_flag, missing_val
     :param sw: tensorboardX.SummaryWriter
     :param global_step: int, current global_step
     :param limit: int,
-    :return: val_loss, val_metrics
+    :return: val_loss
     '''
 
     net.train(False)  # ensure dropout layers are in evaluation mode
@@ -234,7 +234,6 @@ def compute_val_loss_mstgcn(net, val_loader, criterion, masked_flag, missing_val
         val_loader_length = len(val_loader)  # nb of batch
 
         tmp = []  # 记录了所有batch的loss
-        val_metrics = {'mae': 0.0, 'mape': 0.0, 'rmse': 0.0}
 
         for batch_index, batch_data in enumerate(val_loader):
             encoder_inputs, labels = batch_data
@@ -245,27 +244,14 @@ def compute_val_loss_mstgcn(net, val_loader, criterion, masked_flag, missing_val
                 loss = criterion(outputs, labels)
 
             tmp.append(loss.item())
-
-            # Calculate metrics
-            mae = masked_mae(outputs, labels, missing_value).item()
-            mape = masked_mape_np(outputs.cpu().numpy(), labels.cpu().numpy(), missing_value)
-            rmse = masked_rmse(outputs, labels, missing_value).item()
-
-            val_metrics['mae'] += mae
-            val_metrics['mape'] += mape
-            val_metrics['rmse'] += rmse
-
             if batch_index % 100 == 0:
                 print('validation batch %s / %s, loss: %.2f' % (batch_index + 1, val_loader_length, loss.item()))
             if (limit is not None) and batch_index >= limit:
                 break
 
         validation_loss = sum(tmp) / len(tmp)
-        val_metrics = {k: v / len(val_loader) for k, v in val_metrics.items()}
         sw.add_scalar('validation_loss', validation_loss, epoch)
-        
-    return validation_loss, val_metrics
-
+    return validation_loss
 
 
 # def evaluate_on_test_mstgcn(net, test_loader, test_target_tensor, sw, epoch, _mean, _std):
@@ -405,4 +391,6 @@ def predict_and_save_results_mstgcn(net, data_loader, data_target_tensor, global
         excel_list.extend([mae, rmse, mape])
         print(excel_list)
 
+        # Return the predictions and true values for further processing
+        return prediction, data_target_tensor
 
