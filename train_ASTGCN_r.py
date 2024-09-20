@@ -314,14 +314,16 @@ def plot_sample_output(outputs, labels):
     # Creare un array di errori assoluti per ogni punto
     errors = np.abs(sample_output - sample_label)
     
-    # Trova il punto con errore massimo e minimo
-    max_error_idx = np.argmax(errors)
-    min_error_idx = np.argmin(errors)
+    # Trova il punto con errore massimo e minimo, limitato alla dimensione del campione
+    max_error_idx = np.argmax(errors[:len(sample_output)])
+    min_error_idx = np.argmin(errors[:len(sample_output)])
     
     # Crea una figura per l'intero dataset
     fig1, ax1 = plt.subplots()
     ax1.plot(sample_label, color='blue', label='Valori Reali')
     ax1.plot(sample_output, color='orange', label='Previsioni')
+    
+    # Evidenzia il punto con errore massimo e minimo (assicurandosi che l'indice sia valido)
     ax1.scatter(max_error_idx, sample_output[max_error_idx], color='red', label='Errore massimo')
     ax1.scatter(min_error_idx, sample_output[min_error_idx], color='green', label='Errore minimo')
     ax1.set_title('Confronto Previsioni vs Valori Reali')
@@ -333,7 +335,7 @@ def plot_sample_output(outputs, labels):
     save_and_show_plot(fig1, 'confronto_completo.png')
 
     # Zoom su una porzione del dataset per una visualizzazione più chiara
-    zoom_range = 500  # Definiamo il numero di punti da visualizzare in dettaglio
+    zoom_range = min(500, len(sample_output))  # Definiamo il numero di punti da visualizzare in dettaglio
     fig2, ax2 = plt.subplots()
     ax2.plot(range(zoom_range), sample_label[:zoom_range], color='blue', label='Valori Reali')
     ax2.plot(range(zoom_range), sample_output[:zoom_range], color='orange', label='Previsioni')
@@ -351,6 +353,7 @@ def plot_sample_output(outputs, labels):
     
     # Salva e visualizza il grafico con zoom
     save_and_show_plot(fig2, f'confronto_zoom_{zoom_range}.png')
+
 
 # Funzione per previsioni e valutazioni migliorata
 def predict_and_evaluate(net, data_loader, data_target_tensor, metric_method, _mean, _std, params_path=None, global_step=0):
