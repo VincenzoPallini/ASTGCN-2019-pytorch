@@ -230,7 +230,6 @@ def predict_main(global_step, data_loader, data_target_tensor,metric_method, _me
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.pyplot import figure
 import torch
 
 # Funzione per salvare e visualizzare i grafici
@@ -241,55 +240,73 @@ def save_and_show_plot(fig, filename):
     filepath = os.path.join(output_dir, filename)
     fig.savefig(filepath)
     plt.show()
-  
-def plot_errors(predictions, true_values):
-    """
-    Plotta i risultati delle previsioni rispetto ai valori reali, evidenziando i casi con errori massimi e minimi.
-    
-    :param predictions: array con le previsioni del modello
-    :param true_values: array con i valori reali
-    """
-    # Verifica delle dimensioni
-    print(f'Dimensione delle previsioni: {predictions.shape}')
-    print(f'Dimensione dei valori reali: {true_values.shape}')
 
-    # Calcolo dell'errore assoluto
+# Funzione per analizzare e visualizzare gli errori
+def analyze_errors(predictions, true_values):
+    """
+    Analisi e visualizzazione degli errori tra previsioni e valori reali
+    """
+    # Calcolo degli errori assoluti
     errors = np.abs(predictions - true_values)
+    
+    # 1. Plot della distribuzione degli errori
+    fig1, ax1 = plt.subplots()
+    ax1.hist(errors.flatten(), bins=50, color='gray', alpha=0.7)
+    ax1.set_title('Distribuzione degli Errori Assoluti')
+    ax1.set_xlabel('Errore Assoluto')
+    ax1.set_ylabel('Frequenza')
+    
+    # Salva e mostra il grafico
+    save_and_show_plot(fig1, 'distribuzione_errori.png')
 
-    # Appiattiamo l'array degli errori per trovare il massimo e il minimo in tutte le dimensioni
-    flattened_errors = errors.flatten()
+    # 2. Trova i punti con errore massimo e minimo
+    max_error_idx = np.argmax(errors.flatten())
+    min_error_idx = np.argmin(errors.flatten())
 
-    # Trova i punti con errore maggiore e minore
-    max_error_idx = np.argmax(flattened_errors)
-    min_error_idx = np.argmin(flattened_errors)
+    print(f'Errore massimo: {errors.flatten()[max_error_idx]:.2f} al punto {max_error_idx}')
+    print(f'Errore minimo: {errors.flatten()[min_error_idx]:.2f} al punto {min_error_idx}')
 
-    print(f'Punto con errore massimo: {max_error_idx}, Errore: {flattened_errors[max_error_idx]}')
-    print(f'Punto con errore minimo: {min_error_idx}, Errore: {flattened_errors[min_error_idx]}')
-
-    # Riformattiamo l'indice per ottenere la posizione corretta nelle dimensioni originali
-    max_error_idx_unravel = np.unravel_index(max_error_idx, errors.shape)
-    min_error_idx_unravel = np.unravel_index(min_error_idx, errors.shape)
-
-    # Plot delle previsioni vs valori reali
-    plt.figure(figsize=(14, 7))
-    plt.plot(true_values.flatten(), label="Valori Reali", color='blue', alpha=0.6)
-    plt.plot(predictions.flatten(), label="Previsioni", color='orange', alpha=0.6)
+    # Plot delle previsioni vs valori reali con evidenziazione degli errori massimo e minimo
+    fig2, ax2 = plt.subplots()
+    ax2.plot(true_values.flatten(), label="Valori Reali", color='blue', alpha=0.6)
+    ax2.plot(predictions.flatten(), label="Previsioni", color='orange', alpha=0.6)
 
     # Evidenzia i punti con errore massimo e minimo
-    plt.scatter(max_error_idx_unravel[0], predictions[max_error_idx_unravel], color='red', label="Errore massimo", s=100)
-    plt.scatter(min_error_idx_unravel[0], predictions[min_error_idx_unravel], color='green', label="Errore minimo", s=100)
+    ax2.scatter(max_error_idx, predictions.flatten()[max_error_idx], color='red', label="Errore massimo", s=100)
+    ax2.scatter(min_error_idx, predictions.flatten()[min_error_idx], color='green', label="Errore minimo", s=100)
 
-    plt.title("Confronto Previsioni vs Valori Reali")
-    plt.xlabel("Punto di osservazione")
-    plt.ylabel("Valore")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
+    ax2.set_title("Confronto Previsioni vs Valori Reali con Errori Massimo e Minimo")
+    ax2.set_xlabel("Punto di osservazione")
+    ax2.set_ylabel("Valore")
+    ax2.legend()
+    ax2.grid(True)
 
+    # Salva e mostra il grafico
+    save_and_show_plot(fig2, 'confronto_previsioni_errori.png')
 
+    # 3. Plot dell'errore per ogni punto di osservazione
+    fig3, ax3 = plt.subplots()
+    ax3.plot(errors.flatten(), color='red')
+    ax3.set_title('Errore Assoluto per Punto di Osservazione')
+    ax3.set_xlabel('Punto di Osservazione')
+    ax3.set_ylabel('Errore Assoluto')
+    ax3.grid(True)
 
+    # Salva e mostra il grafico
+    save_and_show_plot(fig3, 'errore_per_osservazione.png')
 
-# Funzione migliorata per plottare con zoom sugli errori significativi
+    # 4. Analisi statistica degli errori
+    mean_error = np.mean(errors)
+    std_error = np.std(errors)
+    max_error = np.max(errors)
+    min_error = np.min(errors)
+    
+    print(f"Errore medio: {mean_error:.2f}")
+    print(f"Deviazione standard degli errori: {std_error:.2f}")
+    print(f"Errore massimo: {max_error:.2f}")
+    print(f"Errore minimo: {min_error:.2f}")
+
+# Funzione migliorata per plottare un campione con zoom sugli errori significativi
 def plot_sample_output(outputs, labels):
     sample_output = outputs[0]  # Prendiamo il primo campione per semplicità
     sample_label = labels[0]
@@ -335,10 +352,7 @@ def plot_sample_output(outputs, labels):
     # Salva e visualizza il grafico con zoom
     save_and_show_plot(fig2, f'confronto_zoom_{zoom_range}.png')
 
-# Esempio di chiamata a questa funzione dopo aver ottenuto previsioni e valori reali
-plot_sample_output(predictions, true_values)
-
-
+# Funzione per previsioni e valutazioni migliorata
 def predict_and_evaluate(net, data_loader, data_target_tensor, metric_method, _mean, _std, params_path=None, global_step=0):
     """
     Esegue le previsioni, visualizza gli errori e plotta i campioni di output.
@@ -362,9 +376,8 @@ def predict_and_evaluate(net, data_loader, data_target_tensor, metric_method, _m
 
     # Eseguiamo le previsioni e passiamo il global_step
     predictions, true_values = predict_and_save_results_mstgcn(
-    net, test_loader, test_target_tensor, global_step, metric_method, _mean, _std, params_path, "test"
+    net, data_loader, data_target_tensor, global_step, metric_method, _mean, _std, params_path, "test"
     )
-
 
     # Converto da tensore a numpy array se necessario
     if isinstance(predictions, torch.Tensor):
@@ -372,13 +385,13 @@ def predict_and_evaluate(net, data_loader, data_target_tensor, metric_method, _m
     if isinstance(true_values, torch.Tensor):
         true_values = true_values.cpu().numpy()
 
-    # Plot degli errori
-    plot_errors(predictions, true_values)
+    # Plot degli errori e analisi
+    analyze_errors(predictions, true_values)
     
     # Plot del campione di previsioni rispetto ai valori reali
     plot_sample_output(outputs=predictions, labels=true_values)
 
-# Modifica la chiamata nella funzione principale
+# Chiamata nella funzione principale
 if __name__ == "__main__":
     # Caricamento dati
     train_loader, train_target_tensor, val_loader, val_target_tensor, test_loader, test_target_tensor, _mean, _std = load_graphdata_channel1(
@@ -393,6 +406,7 @@ if __name__ == "__main__":
 
     # Previsioni e valutazioni
     predict_and_evaluate(net, test_loader, test_target_tensor, metric_method, _mean, _std)
+
 
 
 
