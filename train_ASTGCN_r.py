@@ -385,11 +385,17 @@ def plot_sample_output(outputs, labels):
     plt.xlabel("Intervallo temporale")
     plt.ylabel("Valore")
     
-    # Salva il plot dettagliato
-    fig3.savefig("dettagli_previsioni_50_finestre.png")
+    # Assicurarsi che la cartella 'output' esista e salvare il file
+    output_dir = 'output'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    
+    # Salva il plot dettagliato nella cartella output
+    fig3.savefig(os.path.join(output_dir, "dettagli_previsioni_50_finestre.png"))
     
     # Mostra il grafico dopo averlo salvato
     plt.show()
+
 
 
 
