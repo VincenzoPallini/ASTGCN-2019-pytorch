@@ -306,53 +306,95 @@ def analyze_errors(predictions, true_values):
     print(f"Errore massimo: {max_error:.2f}")
     print(f"Errore minimo: {min_error:.2f}")
 
-# Funzione migliorata per plottare un campione con zoom sugli errori significativi
 def plot_sample_output(outputs, labels):
-    sample_output = outputs[0]  # Prendiamo il primo campione per semplicità
-    sample_label = labels[0]
+    """
+    Plotta il campione delle previsioni rispetto ai valori reali, evidenziando gli errori massimi e minimi,
+    e un grafico dettagliato per le prime 50 previsioni a intervalli di 12.
     
-    # Creare un array di errori assoluti per ogni punto
+    :param outputs: array con le previsioni
+    :param labels: array con i valori reali
+    """
+    sample_output = outputs[0]  # Prendiamo il primo campione di previsioni
+    sample_label = labels[0]  # Prendiamo il primo campione di etichette
+    
+    # Assicurarsi che le dimensioni del campione siano corrette
+    assert len(sample_output) == len(sample_label), "Dimensioni del campione non corrispondenti tra output e etichette."
+    
+    # Calcolo degli errori assoluti per il campione corrente
     errors = np.abs(sample_output - sample_label)
     
-    # Trova il punto con errore massimo e minimo, limitato alla dimensione del campione
-    max_error_idx = np.argmax(errors[:len(sample_output)])
-    min_error_idx = np.argmin(errors[:len(sample_output)])
+    # Trova il punto con errore massimo e minimo nel campione corrente
+    max_error_idx = np.argmax(errors)
+    min_error_idx = np.argmin(errors)
     
-    # Crea una figura per l'intero dataset
+    # Verifica che gli indici siano corretti e non fuori dal range
+    if max_error_idx >= len(sample_output) or min_error_idx >= len(sample_output):
+        print("Indice fuori dai limiti del campione.")
+        return
+
+    # Crea una figura per l'intero campione
     fig1, ax1 = plt.subplots()
     ax1.plot(sample_label, color='blue', label='Valori Reali')
     ax1.plot(sample_output, color='orange', label='Previsioni')
     
-    # Evidenzia il punto con errore massimo e minimo (assicurandosi che l'indice sia valido)
+    # Evidenzia il punto con errore massimo e minimo (limitato al campione corrente)
     ax1.scatter(max_error_idx, sample_output[max_error_idx], color='red', label='Errore massimo')
     ax1.scatter(min_error_idx, sample_output[min_error_idx], color='green', label='Errore minimo')
-    ax1.set_title('Confronto Previsioni vs Valori Reali')
+    ax1.set_title('Confronto Previsioni vs Valori Reali (Campione)')
     ax1.set_xlabel('Punto di osservazione')
     ax1.set_ylabel('Valore')
     ax1.legend()
     
-    # Salva e visualizza il grafico dell'intero dataset
-    save_and_show_plot(fig1, 'confronto_completo.png')
+    # Salva e visualizza il grafico dell'intero campione
+    save_and_show_plot(fig1, 'confronto_completo_campione.png')
 
-    # Zoom su una porzione del dataset per una visualizzazione più chiara
-    zoom_range = min(500, len(sample_output))  # Definiamo il numero di punti da visualizzare in dettaglio
+    # Zoom su una porzione del campione per una visualizzazione più chiara
+    zoom_range = min(500, len(sample_output))  # Limita il range di zoom alla lunghezza effettiva del campione
     fig2, ax2 = plt.subplots()
     ax2.plot(range(zoom_range), sample_label[:zoom_range], color='blue', label='Valori Reali')
     ax2.plot(range(zoom_range), sample_output[:zoom_range], color='orange', label='Previsioni')
     
-    # Troviamo gli errori massimi e minimi nella porzione selezionata
+    # Trova il punto con errore massimo e minimo nella porzione zoomata
     max_error_idx_zoom = np.argmax(errors[:zoom_range])
     min_error_idx_zoom = np.argmin(errors[:zoom_range])
     
-    ax2.scatter(max_error_idx_zoom, sample_output[max_error_idx_zoom], color='red', label='Errore massimo')
-    ax2.scatter(min_error_idx_zoom, sample_output[min_error_idx_zoom], color='green', label='Errore minimo')
-    ax2.set_title(f'Zoom sui primi {zoom_range} punti')
+    ax2.scatter(max_error_idx_zoom, sample_output[max_error_idx_zoom], color='red', label='Errore massimo (zoom)')
+    ax2.scatter(min_error_idx_zoom, sample_output[min_error_idx_zoom], color='green', label='Errore minimo (zoom)')
+    ax2.set_title(f'Zoom sui primi {zoom_range} punti del campione')
     ax2.set_xlabel('Punto di osservazione')
     ax2.set_ylabel('Valore')
     ax2.legend()
     
     # Salva e visualizza il grafico con zoom
-    save_and_show_plot(fig2, f'confronto_zoom_{zoom_range}.png')
+    save_and_show_plot(fig2, f'confronto_zoom_{zoom_range}_campione.png')
+
+    # --- Nuovo grafico richiesto ---
+    # Un plot dettagliato delle prime 50 previsioni e valori reali, disposte in gruppi da 12
+    print(sample_output.shape, sample_label.shape)
+    
+    from matplotlib.pyplot import figure
+    fig3 = figure(figsize=(30, 4), dpi=80)
+    
+    # Plot per i primi 50 campioni (a intervalli di 12)
+    for i in range(50):
+        new_i = i * 12
+        plt.plot(range(0 + new_i, 12 + new_i), sample_output[i].detach().cpu().numpy(), color='red')
+        plt.plot(range(0 + new_i, 12 + new_i), sample_label[i].cpu().numpy(), color='blue')
+    
+    plt.title("Previsioni e Valori Reali per le prime 50 finestre temporali")
+    plt.xlabel("Intervallo temporale")
+    plt.ylabel("Valore")
+    
+    # Salva il plot dettagliato
+    fig3.savefig("dettagli_previsioni_50_finestre.png")
+    
+    # Mostra il grafico dopo averlo salvato
+    plt.show()
+
+
+
+
+
 
 
 # Funzione per previsioni e valutazioni migliorata
