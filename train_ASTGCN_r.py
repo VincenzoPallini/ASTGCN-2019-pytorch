@@ -307,127 +307,113 @@ def analyze_errors(predictions, true_values):
     print(f"Errore minimo: {min_error:.2f}")
 
 def plot_sample_output(outputs, labels):
-    """
-    Plotta il campione delle previsioni rispetto ai valori reali, evidenziando gli errori massimi e minimi,
-    e un grafico dettagliato per le prime 50 previsioni a intervalli di 12.
+    print(f"Shape of outputs: {outputs.shape}, Shape of labels: {labels.shape}")
     
-    :param outputs: array con le previsioni
-    :param labels: array con i valori reali
-    """
+    if outputs.shape[0] < 1 or labels.shape[0] < 1:
+        print("Non ci sono abbastanza dati per creare il grafico.")
+        return
+    
     sample_output = outputs[0]  # Prendiamo il primo campione di previsioni
     sample_label = labels[0]  # Prendiamo il primo campione di etichette
     
-    # Assicurarsi che le dimensioni del campione siano corrette
-    assert len(sample_output) == len(sample_label), "Dimensioni del campione non corrispondenti tra output e etichette."
+    print(f"Shape of sample_output: {sample_output.shape}, Shape of sample_label: {sample_label.shape}")
+    
+    if sample_output.shape != sample_label.shape:
+        print("Dimensioni del campione non corrispondenti tra output e etichette.")
+        return
+    
+    # Appiattisci i dati per il calcolo degli errori
+    flat_output = sample_output.flatten()
+    flat_label = sample_label.flatten()
     
     # Calcolo degli errori assoluti per il campione corrente
-    errors = np.abs(sample_output - sample_label)
+    errors = np.abs(flat_output - flat_label)
     
     # Trova il punto con errore massimo e minimo nel campione corrente
     max_error_idx = np.argmax(errors)
     min_error_idx = np.argmin(errors)
     
-    # Verifica che gli indici siano corretti e non fuori dal range
-    if max_error_idx >= len(sample_output) or min_error_idx >= len(sample_output):
-        print("Indice fuori dai limiti del campione.")
-        return
+    print(f"Indice errore massimo: {max_error_idx}, Indice errore minimo: {min_error_idx}")
+    print(f"Errore massimo: {errors[max_error_idx]}, Errore minimo: {errors[min_error_idx]}")
 
     # Crea una figura per l'intero campione
-    fig1, ax1 = plt.subplots()
-    ax1.plot(sample_label, color='blue', label='Valori Reali')
-    ax1.plot(sample_output, color='orange', label='Previsioni')
+    fig1, ax1 = plt.subplots(figsize=(15, 6))
+    ax1.plot(flat_label, color='blue', label='Valori Reali', alpha=0.7)
+    ax1.plot(flat_output, color='orange', label='Previsioni', alpha=0.7)
     
-    # Evidenzia il punto con errore massimo e minimo (limitato al campione corrente)
-    ax1.scatter(max_error_idx, sample_output[max_error_idx], color='red', label='Errore massimo')
-    ax1.scatter(min_error_idx, sample_output[min_error_idx], color='green', label='Errore minimo')
+    # Evidenzia il punto con errore massimo e minimo
+    ax1.scatter(max_error_idx, flat_output[max_error_idx], color='red', label='Errore massimo')
+    ax1.scatter(min_error_idx, flat_output[min_error_idx], color='green', label='Errore minimo')
     ax1.set_title('Confronto Previsioni vs Valori Reali (Campione)')
     ax1.set_xlabel('Punto di osservazione')
     ax1.set_ylabel('Valore')
     ax1.legend()
     
     # Salva e visualizza il grafico dell'intero campione
-    save_and_show_plot(fig1, 'confronto_completo_campione.png')
+    output_dir = 'output'
+    os.makedirs(output_dir, exist_ok=True)
+    plt.savefig(os.path.join(output_dir, 'confronto_completo_campione.png'))
+    plt.close(fig1)
 
     # Zoom su una porzione del campione per una visualizzazione più chiara
-    zoom_range = min(500, len(sample_output))  # Limita il range di zoom alla lunghezza effettiva del campione
-    fig2, ax2 = plt.subplots()
-    ax2.plot(range(zoom_range), sample_label[:zoom_range], color='blue', label='Valori Reali')
-    ax2.plot(range(zoom_range), sample_output[:zoom_range], color='orange', label='Previsioni')
+    zoom_range = min(500, len(flat_output))
+    fig2, ax2 = plt.subplots(figsize=(15, 6))
+    ax2.plot(range(zoom_range), flat_label[:zoom_range], color='blue', label='Valori Reali', alpha=0.7)
+    ax2.plot(range(zoom_range), flat_output[:zoom_range], color='orange', label='Previsioni', alpha=0.7)
     
     # Trova il punto con errore massimo e minimo nella porzione zoomata
-    max_error_idx_zoom = np.argmax(errors[:zoom_range])
-    min_error_idx_zoom = np.argmin(errors[:zoom_range])
+    zoom_errors = errors[:zoom_range]
+    max_error_idx_zoom = np.argmax(zoom_errors)
+    min_error_idx_zoom = np.argmin(zoom_errors)
     
-    ax2.scatter(max_error_idx_zoom, sample_output[max_error_idx_zoom], color='red', label='Errore massimo (zoom)')
-    ax2.scatter(min_error_idx_zoom, sample_output[min_error_idx_zoom], color='green', label='Errore minimo (zoom)')
+    ax2.scatter(max_error_idx_zoom, flat_output[max_error_idx_zoom], color='red', label='Errore massimo (zoom)')
+    ax2.scatter(min_error_idx_zoom, flat_output[min_error_idx_zoom], color='green', label='Errore minimo (zoom)')
     ax2.set_title(f'Zoom sui primi {zoom_range} punti del campione')
     ax2.set_xlabel('Punto di osservazione')
     ax2.set_ylabel('Valore')
     ax2.legend()
     
     # Salva e visualizza il grafico con zoom
-    save_and_show_plot(fig2, f'confronto_zoom_{zoom_range}_campione.png')
+    plt.savefig(os.path.join(output_dir, f'confronto_zoom_{zoom_range}_campione.png'))
+    plt.close(fig2)
 
-    # --- Nuovo grafico richiesto ---
-    # Un plot dettagliato delle prime 50 previsioni e valori reali, disposte in gruppi da 12
-    print(sample_output.shape, sample_label.shape)
-    
-    from matplotlib.pyplot import figure
-    fig3 = figure(figsize=(30, 4), dpi=80)
-    
-    # Plot per i primi 50 campioni (a intervalli di 12)
-    for i in range(50):
-        new_i = i * 12
-        plt.plot(range(0 + new_i, 12 + new_i), sample_output[i].detach().cpu().numpy(), color='red')
-        plt.plot(range(0 + new_i, 12 + new_i), sample_label[i].cpu().numpy(), color='blue')
-    
-    plt.title("Previsioni e Valori Reali per le prime 50 finestre temporali")
-    plt.xlabel("Intervallo temporale")
-    plt.ylabel("Valore")
-    
-    # Assicurarsi che la cartella 'output' esista e salvare il file
-    output_dir = 'output'
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    
-    # Salva il plot dettagliato nella cartella output
-    fig3.savefig(os.path.join(output_dir, "dettagli_previsioni_50_finestre.png"))
+    # Grafico dettagliato delle prime 50 finestre temporali
+    try:
+        fig3, ax3 = plt.subplots(figsize=(30, 4), dpi=80)
+        
+        for i in range(min(50, sample_output.shape[0])):
+            ax3.plot(range(i*12, (i+1)*12), sample_output[i], color='red', alpha=0.7)
+            ax3.plot(range(i*12, (i+1)*12), sample_label[i], color='blue', alpha=0.7)
+        
+        ax3.set_title("Previsioni e Valori Reali per le prime 50 finestre temporali")
+        ax3.set_xlabel("Intervallo temporale")
+        ax3.set_ylabel("Valore")
+        
+        output_path = os.path.join(output_dir, "dettagli_previsioni_50_finestre.png")
+        plt.savefig(output_path)
+        print(f"Grafico salvato in: {output_path}")
+        
+        plt.close(fig3)
+    except Exception as e:
+        print(f"Si è verificato un errore durante la creazione o il salvataggio del grafico dettagliato: {e}")
+
+    print("Tutti i grafici sono stati salvati nella cartella 'output'.")
+
     
     # Mostra il grafico dopo averlo salvato
     plt.show()
 
 
-
-
-
-
-
-
 # Funzione per previsioni e valutazioni migliorata
 def predict_and_evaluate(net, data_loader, data_target_tensor, metric_method, _mean, _std, params_path=None, global_step=0):
-    """
-    Esegue le previsioni, visualizza gli errori e plotta i campioni di output.
-    
-    :param net: modello addestrato
-    :param data_loader: dataloader dei dati di test
-    :param data_target_tensor: tensore con i valori reali
-    :param metric_method: funzione per il calcolo della metrica
-    :param _mean: media dei dati
-    :param _std: deviazione standard dei dati
-    :param params_path: percorso per salvare i risultati (deve essere una stringa valida)
-    :param global_step: step globale di training o predefinito
-    """
-    # Imposta un percorso predefinito se params_path è None
     if params_path is None:
         params_path = "./output"
     
-    # Controlla e crea la directory se non esiste
     if not os.path.exists(params_path):
         os.makedirs(params_path)
 
-    # Eseguiamo le previsioni e passiamo il global_step
     predictions, true_values = predict_and_save_results_mstgcn(
-    net, data_loader, data_target_tensor, global_step, metric_method, _mean, _std, params_path, "test"
+        net, data_loader, data_target_tensor, global_step, metric_method, _mean, _std, params_path, "test"
     )
 
     # Converto da tensore a numpy array se necessario
@@ -436,11 +422,13 @@ def predict_and_evaluate(net, data_loader, data_target_tensor, metric_method, _m
     if isinstance(true_values, torch.Tensor):
         true_values = true_values.cpu().numpy()
 
+    print(f"Shape of predictions: {predictions.shape}, Shape of true_values: {true_values.shape}")
+
     # Plot degli errori e analisi
     analyze_errors(predictions, true_values)
     
     # Plot del campione di previsioni rispetto ai valori reali
-    plot_sample_output(outputs=predictions, labels=true_values)
+    plot_sample_output(predictions, true_values)
 
 # Chiamata nella funzione principale
 if __name__ == "__main__":
