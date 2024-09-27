@@ -231,6 +231,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+import networkx as nx
 
 # Funzione per salvare e visualizzare i grafici
 def save_and_show_plot(fig, filename):
@@ -240,6 +241,61 @@ def save_and_show_plot(fig, filename):
     filepath = os.path.join(output_dir, filename)
     fig.savefig(filepath)
     plt.show()
+
+def visualize_node_predictions(predictions, true_values, adj_mx, node_id, k=2, j=3):
+    """
+    Visualizza le previsioni, i valori reali e gli errori per un nodo specifico e il suo sottografo.
+    
+    :param predictions: Array numpy con le previsioni (shape: [time, nodes, features])
+    :param true_values: Array numpy con i valori reali (shape: [time, nodes, features])
+    :param adj_mx: Matrice di adiacenza del grafo
+    :param node_id: ID del nodo da analizzare
+    :param k: Distanza massima per il sottografo (default: 2)
+    :param j: Numero di snapshot temporali da visualizzare (default: 3)
+    """
+    # Creare il grafo da adj_mx
+    G = nx.from_numpy_array(adj_mx)
+    
+    # Ottenere il sottografo
+    subgraph = nx.ego_graph(G, node_id, radius=k)
+    subgraph_nodes = list(subgraph.nodes())
+    
+    # Estrarre i dati per il sottografo
+    sub_predictions = predictions[:, subgraph_nodes, :]
+    sub_true_values = true_values[:, subgraph_nodes, :]
+    
+    # Calcolare gli errori
+    errors = np.abs(sub_predictions - sub_true_values)
+    
+    # Preparare i dati per la visualizzazione
+    t_pred = min(predictions.shape[0] - 1, j - 1)  # Tempo della previsione
+    times = list(range(max(0, t_pred - j + 1), t_pred + 1))
+    
+    # Creare il layout del grafico
+    fig, axes = plt.subplots(len(times), 3, figsize=(15, 5 * len(times)))
+    fig.suptitle(f"Analisi del nodo {node_id} e del suo sottografo (distanza {k})")
+    
+    for i, t in enumerate(times):
+        # Ground Truth
+        nx.draw(subgraph, ax=axes[i, 0], node_color=sub_true_values[t, :, 0], cmap='viridis', 
+                with_labels=True, node_size=500)
+        axes[i, 0].set_title(f"Ground Truth (t={t})")
+        
+        # Previsione
+        nx.draw(subgraph, ax=axes[i, 1], node_color=sub_predictions[t, :, 0], cmap='viridis', 
+                with_labels=True, node_size=500)
+        axes[i, 1].set_title(f"Previsione (t={t})")
+        
+        # Errore
+        nx.draw(subgraph, ax=axes[i, 2], node_color=errors[t, :, 0], cmap='Reds', 
+                with_labels=True, node_size=500)
+        axes[i, 2].set_title(f"Errore (t={t})")
+    
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, f"node_{node_id}_analysis.png"))
+    plt.close()
+
+    print(f"Grafico salvato come node_{node_id}_analysis.png nella cartella 'output'")
 
 # Funzione per analizzare e visualizzare gli errori
 def analyze_errors(predictions, true_values):
@@ -430,6 +486,10 @@ def predict_and_evaluate(net, data_loader, data_target_tensor, metric_method, _m
     # Plot del campione di previsioni rispetto ai valori reali
     plot_sample_output(predictions, true_values)
 
+    # Visualizza previsioni per nodi specifici
+    for node_id in [0, 10, 20]:  # Esempio: visualizza per i nodi 0, 10 e 20
+        visualize_node_predictions(predictions, true_values, adj_mx, node_id, k=2, j=3)
+
 # Chiamata nella funzione principale
 if __name__ == "__main__":
     # Caricamento dati
@@ -444,7 +504,7 @@ if __name__ == "__main__":
     train_main()
 
     # Previsioni e valutazioni
-    predict_and_evaluate(net, test_loader, test_target_tensor, metric_method, _mean, _std)
+    predict_and_evaluate(net, test_loader, test_target_tensor, metric_method, _mean, _std, params_path, global_step=0)
 
 
 
