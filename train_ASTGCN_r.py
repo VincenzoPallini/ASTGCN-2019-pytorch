@@ -244,19 +244,24 @@ def save_and_show_plot(fig, filename):
 
 def visualize_node_predictions(predictions, true_values, adj_mx, node_id, k=2, j=3):
     """
-    Visualizza le previsioni, i valori reali e gli errori per un nodo specifico e il suo sottografo.
+    Visualizza le previsioni, i valori reali e gli errori per un nodo specifico e il suo sottografo
+    in un intervallo temporale che include lo step precedente.
     
     :param predictions: Array numpy con le previsioni (shape: [batch, num_nodes, num_for_predict])
     :param true_values: Array numpy con i valori reali (shape: [batch, num_nodes, num_for_predict])
     :param adj_mx: Matrice di adiacenza del grafo
     :param node_id: ID del nodo da analizzare
     :param k: Distanza massima per il sottografo (default: 2)
-    :param j: Numero di snapshot temporali da visualizzare (default: 3)
+    :param j: Numero di snapshot temporali da visualizzare (default: 3, incluso lo step precedente)
     """
+    # Verifica che il nodo esista
+    if node_id >= adj_mx.shape[0]:
+        raise ValueError(f"Il nodo {node_id} non esiste nella matrice di adiacenza.")
+    
     # Creare il grafo da adj_mx
     G = nx.from_numpy_array(adj_mx)
     
-    # Ottenere il sottografo
+    # Ottenere il sottografo centrato sul nodo_id
     subgraph = nx.ego_graph(G, node_id, radius=k)
     subgraph_nodes = list(subgraph.nodes())
     
@@ -267,13 +272,17 @@ def visualize_node_predictions(predictions, true_values, adj_mx, node_id, k=2, j
     # Calcolare gli errori
     errors = np.abs(sub_predictions - sub_true_values)
     
-    # Preparare i dati per la visualizzazione
-    t_pred = min(predictions.shape[2] - 1, j - 1)  # Ultimo tempo di previsione
-    times = list(range(max(0, t_pred - j + 1), t_pred + 1))
+    # Controllo che j non superi il numero di snapshot disponibili
+    num_snapshots = predictions.shape[2]
+    j = min(j, num_snapshots)
     
     # Creare il layout del grafico
-    fig, axes = plt.subplots(len(times), 3, figsize=(15, 5 * len(times)))
+    fig, axes = plt.subplots(j, 3, figsize=(15, 5 * j))
     fig.suptitle(f"Analisi del nodo {node_id} e del suo sottografo (distanza {k})")
+    
+    # Aggiungiamo uno snapshot precedente all'intervallo temporale
+    t_pred = num_snapshots - 1  # Ultimo tempo di previsione
+    times = list(range(max(0, t_pred - j + 1), t_pred + 1))  # Aggiunge il tempo precedente
     
     for i, t in enumerate(times):
         # Ground Truth
@@ -291,11 +300,18 @@ def visualize_node_predictions(predictions, true_values, adj_mx, node_id, k=2, j
                 with_labels=True, node_size=500)
         axes[i, 2].set_title(f"Errore (t={t})")
     
-    plt.tight_layout()
+    plt.tight_layout(rect=[0, 0, 1, 0.97])  # Mantieni lo spazio per il titolo principale
+    
+    # Creare la directory di output se non esiste
+    output_dir = "output"
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Salva il grafico
     plt.savefig(os.path.join(output_dir, f"node_{node_id}_analysis.png"))
     plt.close()
 
     print(f"Grafico salvato come node_{node_id}_analysis.png nella cartella 'output'")
+
 
 # Funzione per analizzare e visualizzare gli errori
 def analyze_errors(predictions, true_values):
