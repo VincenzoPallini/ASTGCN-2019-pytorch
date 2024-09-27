@@ -246,8 +246,8 @@ def visualize_node_predictions(predictions, true_values, adj_mx, node_id, k=2, j
     """
     Visualizza le previsioni, i valori reali e gli errori per un nodo specifico e il suo sottografo.
     
-    :param predictions: Array numpy con le previsioni (shape: [time, nodes, features])
-    :param true_values: Array numpy con i valori reali (shape: [time, nodes, features])
+    :param predictions: Array numpy con le previsioni (shape: [batch, num_nodes, num_for_predict])
+    :param true_values: Array numpy con i valori reali (shape: [batch, num_nodes, num_for_predict])
     :param adj_mx: Matrice di adiacenza del grafo
     :param node_id: ID del nodo da analizzare
     :param k: Distanza massima per il sottografo (default: 2)
@@ -268,7 +268,7 @@ def visualize_node_predictions(predictions, true_values, adj_mx, node_id, k=2, j
     errors = np.abs(sub_predictions - sub_true_values)
     
     # Preparare i dati per la visualizzazione
-    t_pred = min(predictions.shape[0] - 1, j - 1)  # Tempo della previsione
+    t_pred = min(predictions.shape[2] - 1, j - 1)  # Ultimo tempo di previsione
     times = list(range(max(0, t_pred - j + 1), t_pred + 1))
     
     # Creare il layout del grafico
@@ -277,17 +277,17 @@ def visualize_node_predictions(predictions, true_values, adj_mx, node_id, k=2, j
     
     for i, t in enumerate(times):
         # Ground Truth
-        nx.draw(subgraph, ax=axes[i, 0], node_color=sub_true_values[t, :, 0], cmap='viridis', 
+        nx.draw(subgraph, ax=axes[i, 0], node_color=sub_true_values[0, :, t], cmap='viridis', 
                 with_labels=True, node_size=500)
         axes[i, 0].set_title(f"Ground Truth (t={t})")
         
         # Previsione
-        nx.draw(subgraph, ax=axes[i, 1], node_color=sub_predictions[t, :, 0], cmap='viridis', 
+        nx.draw(subgraph, ax=axes[i, 1], node_color=sub_predictions[0, :, t], cmap='viridis', 
                 with_labels=True, node_size=500)
         axes[i, 1].set_title(f"Previsione (t={t})")
         
         # Errore
-        nx.draw(subgraph, ax=axes[i, 2], node_color=errors[t, :, 0], cmap='Reds', 
+        nx.draw(subgraph, ax=axes[i, 2], node_color=errors[0, :, t], cmap='Reds', 
                 with_labels=True, node_size=500)
         axes[i, 2].set_title(f"Errore (t={t})")
     
