@@ -285,6 +285,11 @@ def visualize_node_predictions(predictions, true_values, adj_mx, node_id, k=2, j
     times = list(range(max(0, t_pred - j + 1), t_pred + 1))  # Aggiunge il tempo precedente
     
     for i, t in enumerate(times):
+        # Print the values as requested
+        print("Valori ground truth:", sub_true_values[0, :, t])
+        print("Valori previsione:", sub_predictions[0, :, t])
+        print("Errori:", errors[0, :, t])
+
         # Ground Truth
         nx.draw(subgraph, ax=axes[i, 0], node_color=sub_true_values[0, :, t], cmap='viridis', 
                 with_labels=True, node_size=500)
@@ -294,10 +299,12 @@ def visualize_node_predictions(predictions, true_values, adj_mx, node_id, k=2, j
         nx.draw(subgraph, ax=axes[i, 1], node_color=sub_predictions[0, :, t], cmap='viridis', 
                 with_labels=True, node_size=500)
         axes[i, 1].set_title(f"Previsione (t={t})")
-        
-        # Errore
+      
+        some_small_value = np.max(errors)
+      
+        # Errore with new colormap and limits as requested
         nx.draw(subgraph, ax=axes[i, 2], node_color=errors[0, :, t], cmap='Reds', 
-                with_labels=True, node_size=500)
+                with_labels=True, node_size=500, vmin=0, vmax=some_small_value)
         axes[i, 2].set_title(f"Errore (t={t})")
     
     plt.tight_layout(rect=[0, 0, 1, 0.97])  # Mantieni lo spazio per il titolo principale
@@ -311,6 +318,7 @@ def visualize_node_predictions(predictions, true_values, adj_mx, node_id, k=2, j
     plt.close()
 
     print(f"Grafico salvato come node_{node_id}_analysis.png nella cartella 'output'")
+
 
 
 # Funzione per analizzare e visualizzare gli errori
