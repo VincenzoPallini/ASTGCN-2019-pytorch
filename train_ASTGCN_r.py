@@ -242,91 +242,11 @@ def save_and_show_plot(fig, filename):
     fig.savefig(filepath)
     plt.show()
 
-def visualize_node_predictions(predictions, true_values, adj_mx, node_id, k=2, j=3):
-    """
-    Visualizza le previsioni, i valori reali e gli errori per un nodo specifico e il suo sottografo
-    in un intervallo temporale che include lo step precedente.
-    
-    :param predictions: Array numpy con le previsioni (shape: [batch, num_nodes, num_for_predict])
-    :param true_values: Array numpy con i valori reali (shape: [batch, num_nodes, num_for_predict])
-    :param adj_mx: Matrice di adiacenza del grafo
-    :param node_id: ID del nodo da analizzare
-    :param k: Distanza massima per il sottografo (default: 2)
-    :param j: Numero di snapshot temporali da visualizzare (default: 3, incluso lo step precedente)
-    """
-    # Verifica che il nodo esista
-    if node_id >= adj_mx.shape[0]:
-        raise ValueError(f"Il nodo {node_id} non esiste nella matrice di adiacenza.")
-    
-    # Creare il grafo da adj_mx
-    G = nx.from_numpy_array(adj_mx)
-    
-    # Ottenere il sottografo centrato sul nodo_id
-    subgraph = nx.ego_graph(G, node_id, radius=k)
-    subgraph_nodes = list(subgraph.nodes())
-    
-    # Estrarre i dati per il sottografo
-    sub_predictions = predictions[:, subgraph_nodes, :]
-    sub_true_values = true_values[:, subgraph_nodes, :]
-    
-    # Calcolare gli errori
-    errors = np.abs(sub_predictions - sub_true_values)
-    
-    # Controllo che j non superi il numero di snapshot disponibili
-    num_snapshots = predictions.shape[2]
-    j = min(j, num_snapshots)
-    
-    # Creare il layout del grafico
-    fig, axes = plt.subplots(j, 3, figsize=(15, 5 * j))
-    fig.suptitle(f"Analisi del nodo {node_id} e del suo sottografo (distanza {k})")
-    
-    # Aggiungiamo uno snapshot precedente all'intervallo temporale
-    t_pred = num_snapshots - 1  # Ultimo tempo di previsione
-    times = list(range(max(0, t_pred - j + 1), t_pred + 1))  # Aggiunge il tempo precedente
-    
-    for i, t in enumerate(times):
-        # Print the values as requested
-        print("Valori ground truth:", sub_true_values[0, :, t])
-        print("Valori previsione:", sub_predictions[0, :, t])
-        print("Errori:", errors[0, :, t])
-
-        # Ground Truth
-        nx.draw(subgraph, ax=axes[i, 0], node_color=sub_true_values[0, :, t], cmap='viridis', 
-                with_labels=True, node_size=500)
-        axes[i, 0].set_title(f"Ground Truth (t={t})")
-        
-        # Previsione
-        nx.draw(subgraph, ax=axes[i, 1], node_color=sub_predictions[0, :, t], cmap='viridis', 
-                with_labels=True, node_size=500)
-        axes[i, 1].set_title(f"Previsione (t={t})")
-      
-        some_small_value = np.max(errors)
-      
-        # Errore with new colormap and limits as requested
-        nx.draw(subgraph, ax=axes[i, 2], node_color=errors[0, :, t], cmap='Reds', 
-                with_labels=True, node_size=500, vmin=0, vmax=some_small_value)
-        axes[i, 2].set_title(f"Errore (t={t})")
-    
-    plt.tight_layout(rect=[0, 0, 1, 0.97])  # Mantieni lo spazio per il titolo principale
-    
-    # Creare la directory di output se non esiste
-    output_dir = "output"
-    os.makedirs(output_dir, exist_ok=True)
-    
-    # Salva il grafico
-    plt.savefig(os.path.join(output_dir, f"node_{node_id}_analysis.png"))
-    plt.close()
-
-    print(f"Grafico salvato come node_{node_id}_analysis.png nella cartella 'output'")
-
-
-
 # Funzione per analizzare e visualizzare gli errori
 def analyze_errors(predictions, true_values):
     """
     Analisi e visualizzazione degli errori tra previsioni e valori reali
     """
-    # Calcolo degli errori assoluti
     errors = np.abs(predictions - true_values)
     
     # 1. Plot della distribuzione degli errori
@@ -336,7 +256,6 @@ def analyze_errors(predictions, true_values):
     ax1.set_xlabel('Errore Assoluto')
     ax1.set_ylabel('Frequenza')
     
-    # Salva e mostra il grafico
     save_and_show_plot(fig1, 'distribuzione_errori.png')
 
     # 2. Trova i punti con errore massimo e minimo
@@ -350,18 +269,14 @@ def analyze_errors(predictions, true_values):
     fig2, ax2 = plt.subplots()
     ax2.plot(true_values.flatten(), label="Valori Reali", color='blue', alpha=0.6)
     ax2.plot(predictions.flatten(), label="Previsioni", color='orange', alpha=0.6)
-
-    # Evidenzia i punti con errore massimo e minimo
     ax2.scatter(max_error_idx, predictions.flatten()[max_error_idx], color='red', label="Errore massimo", s=100)
     ax2.scatter(min_error_idx, predictions.flatten()[min_error_idx], color='green', label="Errore minimo", s=100)
-
     ax2.set_title("Confronto Previsioni vs Valori Reali con Errori Massimo e Minimo")
     ax2.set_xlabel("Punto di osservazione")
     ax2.set_ylabel("Valore")
     ax2.legend()
     ax2.grid(True)
 
-    # Salva e mostra il grafico
     save_and_show_plot(fig2, 'confronto_previsioni_errori.png')
 
     # 3. Plot dell'errore per ogni punto di osservazione
@@ -372,7 +287,6 @@ def analyze_errors(predictions, true_values):
     ax3.set_ylabel('Errore Assoluto')
     ax3.grid(True)
 
-    # Salva e mostra il grafico
     save_and_show_plot(fig3, 'errore_per_osservazione.png')
 
     # 4. Analisi statistica degli errori
@@ -386,42 +300,100 @@ def analyze_errors(predictions, true_values):
     print(f"Errore massimo: {max_error:.2f}")
     print(f"Errore minimo: {min_error:.2f}")
 
-def plot_sample_output(outputs, labels):
-    print(f"Shape of outputs: {outputs.shape}, Shape of labels: {labels.shape}")
+# Funzione per estrarre un sottografo connesso a un nodo fino a distanza k
+def extract_subgraph(adj_mx, node_idx, k):
+    G = nx.from_numpy_array(adj_mx)
+    sub_nodes = nx.single_source_shortest_path_length(G, node_idx, cutoff=k)
+    subgraph = G.subgraph(sub_nodes)
+    return subgraph
+
+
+
+import networkx as nx
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.colors import Normalize
+
+def plot_graph(graph, node_errors=None, title="Sottografo connesso"):
+    print(f"Debug: Number of nodes in graph: {len(graph.nodes())}")
+    print(f"Debug: Type of node_errors: {type(node_errors)}")
+    if isinstance(node_errors, dict):
+        print(f"Debug: Number of items in node_errors dict: {len(node_errors)}")
+    elif node_errors is not None:
+        print(f"Debug: Length of node_errors: {len(node_errors)}")
     
+    pos = nx.spring_layout(graph)
+    plt.figure(figsize=(8, 6))
+    
+    # Disegna il grafo con nodi colorati in blu di default
+    nx.draw(graph, pos, with_labels=True, node_color='lightblue', node_size=500, edge_color='gray', font_size=10, font_weight='bold')
+    
+    # Se ci sono errori associati ai nodi, evidenziali
+    if node_errors is not None:
+        # Assicurati che node_errors sia un dizionario
+        if not isinstance(node_errors, dict):
+            node_errors = {node: error for node, error in enumerate(node_errors) if node in graph.nodes()}
+        
+        print(f"Debug: Number of items in node_errors after conversion: {len(node_errors)}")
+        
+        # Filtro per considerare solo i nodi nel sottografo
+        node_colors = np.array([node_errors.get(node, 0) for node in graph.nodes()])
+        
+        print(f"Debug: Number of colors: {len(node_colors)}")
+        print(f"Debug: Min color value: {np.min(node_colors)}")
+        print(f"Debug: Max color value: {np.max(node_colors)}")
+        
+        # Normalizza i colori
+        norm = Normalize(vmin=np.min(node_colors), vmax=np.max(node_colors))
+        node_colors_normalized = norm(node_colors)
+        
+        print(f"Debug: Number of colors after normalization: {len(node_colors_normalized)}")
+        print(f"Debug: Min normalized color value: {np.min(node_colors_normalized)}")
+        print(f"Debug: Max normalized color value: {np.max(node_colors_normalized)}")
+        
+        node_collection = nx.draw_networkx_nodes(graph, pos, nodelist=list(graph.nodes()), node_color=node_colors_normalized, cmap=plt.cm.Reds, node_size=700)
+        plt.colorbar(node_collection)
+    
+    plt.title(title)
+    plt.show()
+
+
+
+# Funzione per l'analisi e la visualizzazione degli errori nel sottografo
+def analyze_node_subgraph(predictions, true_values, adj_mx, node_idx, k, j_snapshots):
+    errors = np.abs(predictions - true_values)
+    subgraph = extract_subgraph(adj_mx, node_idx, k)
+    
+    for t in range(j_snapshots):
+        pred_snapshot = predictions[t]
+        true_snapshot = true_values[t]
+        node_errors = {i: errors[t, i] for i in subgraph.nodes()}
+        plot_graph(subgraph, node_errors=node_errors, title=f"Errore al tempo t-{j_snapshots-t} (previsione vs ground truth)")
+    
+    print("Visualizzazione completata per il nodo", node_idx)
+
+def plot_sample_output(outputs, labels):
     if outputs.shape[0] < 1 or labels.shape[0] < 1:
         print("Non ci sono abbastanza dati per creare il grafico.")
         return
-    
-    sample_output = outputs[0]  # Prendiamo il primo campione di previsioni
-    sample_label = labels[0]  # Prendiamo il primo campione di etichette
-    
-    print(f"Shape of sample_output: {sample_output.shape}, Shape of sample_label: {sample_label.shape}")
+
+    sample_output = outputs[0]
+    sample_label = labels[0]
     
     if sample_output.shape != sample_label.shape:
         print("Dimensioni del campione non corrispondenti tra output e etichette.")
         return
-    
-    # Appiattisci i dati per il calcolo degli errori
+
     flat_output = sample_output.flatten()
     flat_label = sample_label.flatten()
-    
-    # Calcolo degli errori assoluti per il campione corrente
     errors = np.abs(flat_output - flat_label)
     
-    # Trova il punto con errore massimo e minimo nel campione corrente
     max_error_idx = np.argmax(errors)
     min_error_idx = np.argmin(errors)
-    
-    print(f"Indice errore massimo: {max_error_idx}, Indice errore minimo: {min_error_idx}")
-    print(f"Errore massimo: {errors[max_error_idx]}, Errore minimo: {errors[min_error_idx]}")
 
-    # Crea una figura per l'intero campione
     fig1, ax1 = plt.subplots(figsize=(15, 6))
     ax1.plot(flat_label, color='blue', label='Valori Reali', alpha=0.7)
     ax1.plot(flat_output, color='orange', label='Previsioni', alpha=0.7)
-    
-    # Evidenzia il punto con errore massimo e minimo
     ax1.scatter(max_error_idx, flat_output[max_error_idx], color='red', label='Errore massimo')
     ax1.scatter(min_error_idx, flat_output[min_error_idx], color='green', label='Errore minimo')
     ax1.set_title('Confronto Previsioni vs Valori Reali (Campione)')
@@ -429,19 +401,16 @@ def plot_sample_output(outputs, labels):
     ax1.set_ylabel('Valore')
     ax1.legend()
     
-    # Salva e visualizza il grafico dell'intero campione
     output_dir = 'output'
     os.makedirs(output_dir, exist_ok=True)
     plt.savefig(os.path.join(output_dir, 'confronto_completo_campione.png'))
     plt.close(fig1)
 
-    # Zoom su una porzione del campione per una visualizzazione più chiara
     zoom_range = min(500, len(flat_output))
     fig2, ax2 = plt.subplots(figsize=(15, 6))
     ax2.plot(range(zoom_range), flat_label[:zoom_range], color='blue', label='Valori Reali', alpha=0.7)
     ax2.plot(range(zoom_range), flat_output[:zoom_range], color='orange', label='Previsioni', alpha=0.7)
     
-    # Trova il punto con errore massimo e minimo nella porzione zoomata
     zoom_errors = errors[:zoom_range]
     max_error_idx_zoom = np.argmax(zoom_errors)
     min_error_idx_zoom = np.argmin(zoom_errors)
@@ -453,39 +422,27 @@ def plot_sample_output(outputs, labels):
     ax2.set_ylabel('Valore')
     ax2.legend()
     
-    # Salva e visualizza il grafico con zoom
     plt.savefig(os.path.join(output_dir, f'confronto_zoom_{zoom_range}_campione.png'))
     plt.close(fig2)
 
-    # Grafico dettagliato delle prime 50 finestre temporali
     try:
         fig3, ax3 = plt.subplots(figsize=(30, 4), dpi=80)
-        
         for i in range(min(50, sample_output.shape[0])):
             ax3.plot(range(i*12, (i+1)*12), sample_output[i], color='red', alpha=0.7)
             ax3.plot(range(i*12, (i+1)*12), sample_label[i], color='blue', alpha=0.7)
-        
         ax3.set_title("Previsioni e Valori Reali per le prime 50 finestre temporali")
         ax3.set_xlabel("Intervallo temporale")
         ax3.set_ylabel("Valore")
-        
         output_path = os.path.join(output_dir, "dettagli_previsioni_50_finestre.png")
         plt.savefig(output_path)
-        print(f"Grafico salvato in: {output_path}")
-        
         plt.close(fig3)
     except Exception as e:
-        print(f"Si è verificato un errore durante la creazione o il salvataggio del grafico dettagliato: {e}")
+        print(f"Errore nella creazione del grafico dettagliato: {e}")
 
-    print("Tutti i grafici sono stati salvati nella cartella 'output'.")
-
-    
-    # Mostra il grafico dopo averlo salvato
     plt.show()
 
-
-# Funzione per previsioni e valutazioni migliorata
-def predict_and_evaluate(net, data_loader, data_target_tensor, metric_method, _mean, _std, params_path=None, global_step=0):
+# Funzione per previsioni, valutazioni e analisi dei sottografi
+def predict_and_evaluate_with_subgraph(net, data_loader, data_target_tensor, metric_method, _mean, _std, adj_mx, node_idx, k, j_snapshots, params_path=None, global_step=0):
     if params_path is None:
         params_path = "./output"
     
@@ -496,7 +453,6 @@ def predict_and_evaluate(net, data_loader, data_target_tensor, metric_method, _m
         net, data_loader, data_target_tensor, global_step, metric_method, _mean, _std, params_path, "test"
     )
 
-    # Converto da tensore a numpy array se necessario
     if isinstance(predictions, torch.Tensor):
         predictions = predictions.cpu().numpy()
     if isinstance(true_values, torch.Tensor):
@@ -504,37 +460,25 @@ def predict_and_evaluate(net, data_loader, data_target_tensor, metric_method, _m
 
     print(f"Shape of predictions: {predictions.shape}, Shape of true_values: {true_values.shape}")
 
-    # Plot degli errori e analisi
+    analyze_node_subgraph(predictions, true_values, adj_mx, node_idx, k, j_snapshots)
+
     analyze_errors(predictions, true_values)
-    
-    # Plot del campione di previsioni rispetto ai valori reali
     plot_sample_output(predictions, true_values)
 
-    # Visualizza previsioni per nodi specifici
-    for node_id in [0, 10, 20]:  # Esempio: visualizza per i nodi 0, 10 e 20
-        visualize_node_predictions(predictions, true_values, adj_mx, node_id, k=2, j=3)
-
-# Chiamata nella funzione principale
 if __name__ == "__main__":
-    # Caricamento dati
     train_loader, train_target_tensor, val_loader, val_target_tensor, test_loader, test_target_tensor, _mean, _std = load_graphdata_channel1(
         graph_signal_matrix_filename, num_of_hours, num_of_days, num_of_weeks, DEVICE, batch_size
     )
 
-    # Definizione del modello
     net = make_model(DEVICE, nb_block, in_channels, K, nb_chev_filter, nb_time_filter, time_strides, adj_mx, num_for_predict, len_input, num_of_vertices)
 
-    # Addestramento del modello
     train_main()
 
-    # Previsioni e valutazioni
-    predict_and_evaluate(net, test_loader, test_target_tensor, metric_method, _mean, _std, params_path, global_step=0)
+    node_idx = 5
+    k = 3
+    j_snapshots = 2
 
-
-
-
-
-    # predict_main(13, test_loader, test_target_tensor,metric_method, _mean, _std, 'test')
+    predict_and_evaluate_with_subgraph(net, test_loader, test_target_tensor, metric_method, _mean, _std, adj_mx, node_idx, k, j_snapshots)
 
 
 
